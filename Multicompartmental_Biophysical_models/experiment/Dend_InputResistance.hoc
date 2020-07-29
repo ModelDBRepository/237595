@@ -1,0 +1,142 @@
+/* Input Resistance in dendrites*/
+
+load_file("nrngui.hoc") 	
+        v_init = -68          // Vrest
+	cvode.active(0)     
+	//-----Objects for record data
+	objref cv
+	cv=new CVode(0)
+	tstop= 200
+	steps_per_ms=10
+	dt=1/steps_per_ms
+	n=int(tstop/dt)
+ 
+	objref all_msec
+	all_msec = new Vector(n,0)
+
+
+
+
+//Open Fast Spiking Template
+xopen("PFCtemplate.hoc") // template with mechanisms
+objref FSdetailedtemplate
+FSdetailedtemplate = new FScell("Mar11.hoc") // Morphology reconstruction
+xopen("../bash_templates/current_balance_fs.hoc")
+current_balanceFS(-68)
+xopen("../bash_templates/basic-graphics.hoc")
+addgraph("FSdetailedtemplate.soma.v(0.5)",-90,50)
+
+
+ctrpr = 0
+	forsec FSdetailedtemplate.basal_prox {          //ctpr= basal prox
+		ctrpr = ctrpr +1
+	}
+	ctrd= 0
+	forsec FSdetailedtemplate.basal_dist {  //ctrd= basal dist
+		ctrd = ctrd +1
+	}
+	number_dends = ctrpr + ctrd
+
+
+
+strdef folder
+PFC=0
+
+proc create_dir() {
+if (PFC){
+	sprint(folder,"mkdir -p IR/PFC//PFC_%d/",number_dends)
+}else {
+sprint(folder,"mkdir -p IR/HIPP/HIPP_%d",number_dends)
+}
+	system(folder)
+}
+
+create_dir()
+
+print"ok  files"
+
+ 
+
+objref vdend, FSdv, FSdt
+	
+proc rec_dend_Voltage(){
+		FSdv=new Vector(n)
+		FSdt=new Vector(n) 
+		for j=0,n-1 {FSdt.x[j]=j*dt }
+		
+               FSdetailedtemplate.dend[$1] cv.record(&v(0.5),FSdv,FSdt,1)
+            }
+
+	strdef temp
+	proc save_dend_Voltage() {
+		vdend = new File()	
+                if (PFC){	
+		   sprint(temp,"IR/PFC/PFC_%d/rec_dend_%d_current_%g.txt", number_dends, mydend,revma)  
+                }else{
+		   sprint(temp,"IR/HIPP/HIPP_%d/rec_dend_%d_current_%g.txt", number_dends, mydend,revma)  
+                }
+		vdend.wopen(temp)
+		for sb=0, FSdv.size()-1 { 
+			vdend.printf ("%f\n",FSdv.x[sb])
+		}
+		vdend.close()
+	  }
+
+
+
+objref ic_new
+proc applyIClamp(){
+
+        FSdetailedtemplate.dend[$1] {ic_new = new IClamp(0.5)}            
+	ic_new.amp = revma//(nA)
+	ic_new.del=50//100//100//0
+	ic_new.dur=100 //500//or 500//2000
+	print  "Stim: ",mydend," with ",ic_new.amp," nA"
+}
+
+
+for mydend=0,number_dends-1 {
+
+		revma=-0.1//+0.02*runs // Intensity of my stimulus
+		applyIClamp(mydend) 	
+		
+		rec_dend_Voltage(mydend) 
+
+		run()
+	
+		//save_dend_Voltage()
+				
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

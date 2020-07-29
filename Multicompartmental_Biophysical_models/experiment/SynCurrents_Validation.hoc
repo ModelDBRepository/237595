@@ -1,0 +1,265 @@
+//==========================================================================================================================
+/* Synaptic currents (AMPA, NMDA, GABAa) Validation for cell FS interneuron models 
+                   written by Alexandra Tzilivaki   */
+
+//Note: Depending on the current you want to simulate change the running procedure. :-)
+//==========================================================================================================================
+	
+        //Initialize NEURON
+	load_file("nrngui.hoc")
+         v_init=-68        // Vrest
+	cvode.active(0)     
+	//-----Objects for record data
+	objref cv
+	cv=new CVode(0)
+
+	tstop=500
+	steps_per_ms=10
+	dt=0.1
+	n=int(tstop/dt)
+//...........................................................................................................................
+	//Open Fast Spiking Template
+	xopen("PFCtemplate.hoc") 
+	objref FSdetailedtemplate
+	FSdetailedtemplate = new FScell("Mar11.hoc") // morphology from neuromorpho.org
+
+// objref variables
+      
+	//1. GABAa
+	PV2PVmaxsyn=1 //Conelly et al 2010. Bacci et al 2003  Total PV Autapses
+        objref gabaain[PV2PVmaxsyn]
+        objref congabaain[PV2PVmaxsyn]
+        
+        //2 AMPA, NMDA
+        PC2PVmaxsyn=2 
+        objref ampa[PC2PVmaxsyn]
+        objref conampa[PC2PVmaxsyn]
+        objref nmda[PC2PVmaxsyn]
+        objref connmda[PC2PVmaxsyn]
+        objref rand
+        objref fppv
+
+// ===================================NetStim==================================================
+	objref synapticStim
+	synapticStim=new NetStim(0.5)
+	synapticStim.interval = 20
+	synapticStim.number = 1            
+	synapticStim.start = 100
+
+//==============================================================================================	
+GABA = 1//1
+
+objref vcg
+proc gvclamp() {
+	FSdetailedtemplate.soma { vcg = new VClamp(0.5) }
+        vcg.amp[0]= -70
+	vcg.dur[0]=200
+ 	vcg.amp[1] = 10
+	vcg.dur[1] = 1
+ 	vcg.amp[2] = -70
+	vcg.dur[2] = tstop
+}
+
+objref vca
+proc vclampampa() {
+	FSdetailedtemplate.soma{vca = new VClamp(0.5)}
+	vca.amp[0]= -70 // AMPA
+	vca.dur[0]=tstop
+}
+objref vcn
+proc vclampnmda() {
+	FSdetailedtemplate.soma{vcn = new VClamp(0.5)}
+	vcn.amp[0]= 60 // NMDA 
+	vcn.dur[0]=tstop
+}
+
+objref fpvpv
+if (GABA) {
+
+
+fpvpv = new Random(1)
+delstim=fpvpv.normal(0.6, 0.2)	
+for a=0, (PV2PVmaxsyn-1) {
+FSdetailedtemplate.soma[0] {gabaain[a]=new GABAain(0.5)}
+delstim=fpvpv.repick()
+if (delstim<0) {delstim=delstim*(-1) } 
+congabaain[a]=new NetCon(synapticStim, gabaain[a],-30, delstim, 5.1e-4*14) 
+}
+} else {
+
+
+	fppv = new Random(2)
+	delstim=fppv.normal(0.6, 0.2)
+	for b=0, (PC2PVmaxsyn-1) {
+		print "OK"
+		FSdetailedtemplate.dend[5]{ ampa[b] = new CPGLUIN(0.5) } 
+		FSdetailedtemplate.dend[5]{nmda[b] = new NMDAIN(0.5) } 
+		delstim=fppv.repick()
+		if (delstim<0) {delstim=delstim*(-1) } 
+		conampa[b] = new NetCon(synapticStim, ampa[b], -20, delstim, 7.5e-4)
+		connmda[b] = new NetCon(synapticStim, nmda[b], -20, delstim, 3.2e-4)
+	}
+}
+
+/*===========================================================================================================================================================
+                                             RECORD AND SAVE
+============================================================================================================================================================*/
+
+// record ampa
+objref campain[PC2PVmaxsyn]
+objref ct[PC2PVmaxsyn]
+
+proc rec_synaptic_currents_GLU() {
+	
+	for i=0, (PC2PVmaxsyn-1){
+		campain[i]=new Vector(n,100)
+		ct[i]=new Vector(n)		
+		for j=0,(n-1) {ct[i].x[j]=j*dt }
+		FSdetailedtemplate.dend[0]{ campain[i].record(&ampa[i].iglu,ct[i],1) }
+
+	}
+}
+print " rec ampa"
+
+// save ampa current
+
+objref vsoma
+objref sumGLU
+strdef temp
+proc save_synaptic_currents_GLU() {
+	vsoma = new File()		
+	sprint(temp,"ValidationData/SynapticMechanisms/GLU_PFC_3.txt")  
+	vsoma.wopen(temp)
+	sumGLU = new Vector(n,0)
+	for syn=0, (PC2PVmaxsyn-1) {	
+		for k=0, n-1 {
+ 			sumGLU.x[k] = sumGLU.x[k] + campain[syn].x[k]
+		}
+	}
+	for sb=0, sumGLU.size()-1 { 
+		vsoma.printf ("%f\n",sumGLU.x[sb])
+	}
+	vsoma.close()
+
+}
+print "ampa current saved"
+
+// record nmda
+objref cnmdain[PC2PVmaxsyn]
+objref ctn[PC2PVmaxsyn]
+
+proc rec_synaptic_currents_NMDA() {
+	print "tre3e aalliws alimono sou!"
+	for i=0, (PC2PVmaxsyn-1){
+		cnmdain[i]=new Vector(n,100)
+		ctn[i]=new Vector(n)		
+		for j=0,(n-1) {ctn[i].x[j]=j*dt }
+		FSdetailedtemplate.dend[200]{ cnmdain[i].record(&nmda[i].iNMDA,ctn[i],1) }
+
+	}
+}
+print "rec nmda"
+
+// save nmda current
+objref vsoma
+objref sumNMDA
+strdef temp
+proc save_synaptic_currents_NMDA() {
+	vsoma = new File()		
+	sprint(temp,"ValidationData/SynapticMechanisms/NMDA_PFC_3.txt")  
+	vsoma.wopen(temp)
+	sumNMDA = new Vector(n,0)
+	for syn=0, (PC2PVmaxsyn-1) {	
+		for k=0, n-1 {
+ 			sumNMDA.x[k] = sumNMDA.x[k] + cnmdain[syn].x[k]
+		}
+	}
+	for sb=0, sumNMDA.size()-1 { 
+		vsoma.printf ("%f\n",sumNMDA.x[sb])
+	}
+	vsoma.close()
+
+}
+print "nmda current saved"
+
+// record gaba
+objref cgaba[PV2PVmaxsyn], ctg[PV2PVmaxsyn]
+proc rec_synaptic_current_GABA() {
+	for l=0, (PV2PVmaxsyn-1){
+		cgaba[l]=new Vector(n,100)
+		ctg[l]=new Vector(n)
+		for m=0,(n-1){ctg[l].x[m]=m*dt}
+		FSdetailedtemplate.dend[0]{ cgaba[l].record(&gabaain[l].i,ctg[l],1)}
+	}
+}
+print "rec GABA"
+ //...........................................................................................................
+// save gaba current
+objref vdend, sumGABA
+strdef temp
+proc save_synaptic_current_GABA() {
+	vdend= new File()
+	sprint(temp, "ValidationData/SynapticMechanisms/gaba_PFC_3.txt")
+	vdend.wopen(temp)
+	sumGABA = new Vector(n,0)
+	for aut = 0, (PV2PVmaxsyn-1) {
+		/*for v = 0, (n-1) {                                                
+			sumGABA.x[v] = cgaba[aut].x[v]
+		}*/
+	}
+	for size=0, cgaba.size()-1 {
+		vdend.printf("%f\n", cgaba.x[size])
+	}
+	vdend.close
+	print"gaba current saved"
+}
+
+//=========================================================================================================================
+/*                                               RUN
+==========================================================================================================================*/
+xopen("../bash_templates/basic-graphics.hoc")
+
+for runs = 0,0{
+print runs
+
+
+	/*if (GABA) { 
+		gvclamp()       		
+		rec_synaptic_current_GABA()
+		addgraph_2("vcg.i",0,tstop, -1,1)
+                  //addgraph_2("gabaain[0].i",0,tstop,-1,1)
+
+
+	} else  {*/
+//if (runs =0) {
+		//vclampampa()
+		//rec_synaptic_currents_GLU()
+		//addgraph_2("vca.i",0,tstop, -1,1)
+              
+	//	} else{
+           // vclampnmda()
+	//rec_synaptic_currents_NMDA()
+              
+
+	//}//else gaba
+	//}//else ampa/nmda
+gvclamp()       		
+		rec_synaptic_current_GABA()
+		addgraph_2("vcg.i",0,tstop, -1,1)
+	run()
+print "ok"
+	//if( GABA) {
+		//save_synaptic_current_GABA()
+
+//if (runs=0){
+	
+		//save_synaptic_currents_GLU() 
+//} else {
+     // save_synaptic_currents_NMDA()
+//	}
+
+//}
+}//runs
+	//.....................................................................................................................................................................
+
+

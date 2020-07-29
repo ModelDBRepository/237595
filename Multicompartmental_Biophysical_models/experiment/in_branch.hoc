@@ -1,0 +1,246 @@
+/*  In Branch stimulation protocol
+written by Alexandra Tzilivaki (alexandra.tzilivaki@imbb.forth.gr)*/
+
+
+
+
+
+//Initialize NEURON
+load_file("nrngui.hoc")  
+v_init=-68        // Vrest
+cvode.active(0)
+     
+//-----Objects for record data
+objref cv
+cv=new CVode(0)
+tstop=1000//500 //Duration of the simulation
+steps_per_ms=10
+dt=1/steps_per_ms
+n=int(tstop/dt)
+
+objref all_msec
+all_msec = new Vector(n,0)
+for q=0,n-1 {all_msec.x[q]=q*dt}
+  
+xopen("tempSomogyi1.hoc") // template with mechanisms
+objref FSdetailedtemplate
+FSdetailedtemplate = new FScell("Somogyi_1.hoc") //moprhology reconstruction
+
+xopen("../bash_templates/current_balance_fs.hoc")
+current_balanceFS(-68)
+xopen("../bash_templates/basic-graphics.hoc") 
+addgraph("FSdetailedtemplate.soma.v(0.5)",-90,50)
+
+//-----------------------------------------------------------------------------------------
+ctrpr = 0
+forsec FSdetailedtemplate.basal_prox {          //ctpr= basal prox
+	ctrpr = ctrpr +1
+}
+ctrd= 0
+forsec FSdetailedtemplate.basal_dist {  //ctrd= basal dist
+	ctrd = ctrd +1
+}
+number_dends = ctrpr + ctrd
+objref fsyndend
+maxsyndend=60
+
+
+
+//----------------------------------------------------------------------------------------------
+// Uncomment this if you wish to set diameter of all dends equal to 2 microns!
+/*for all=0,number_dends-1{
+    access FSdetailedtemplate.dend[all]
+
+    FSdetailedtemplate.dend[all].diam=2//1.2//FSdetailedtemplate.dend[dendrite].diam//*1.2
+}*/
+
+
+
+cluster_size =1 // max dendritic branch number. 1 cluster_size=1 dendrite receives 60 synapses. 2 cluster_size=2 dendrites receive 30 synapses and so on 
+cluster_synapses=60//15//20//30//10 // total synapses per branch
+objref branch, tmpbranch 
+objref vecstim[cluster_synapses*cluster_size] 
+
+mean=0.02 //50 Hz
+objref rp
+rp = new Random()
+rp.poisson(mean)
+//print"123"
+objref stimvector[cluster_synapses*cluster_size]
+for t=0,cluster_synapses*cluster_size-1{
+	stimvector[t]= new Vector()
+	for k=0,int(tstop)-1{
+		if(rp.repick()){
+			stimvector[t].append(k)
+		}
+	}
+}
+//----------------------------------record&save
+objref vsoma, FSv, FSt, vdend
+
+proc rec_soma_Voltage(){
+	FSv=new Vector(n)
+	FSt=new Vector(n) 
+	for j=0,n-1 {FSt.x[j]=j*dt }
+	FSdetailedtemplate.soma cv.record(&FSdetailedtemplate.soma.v(0.5),FSv,FSt,1)
+}
+strdef temp
+proc save_soma_Voltage() { localobj vect
+	
+	vsoma = new File()		
+	sprint(temp,"Cell_io/cluster/PFC/Jan19/PFC_67/all//clusteredall/clusteredall_1/Synapses_%d_seeddend_%d_seedpid.txt", $1, $2, $3)   
+	vsoma.wopen(temp)
+	for sb=0, FSv/*[$1][$2][$3]*/.size()-1 { 
+	vsoma.printf ("%f\n",FSv/*[$1][$2][$3]*/.x[sb])
+	}
+	vsoma.close()
+
+	vect = $o4
+	vdend = new File()		
+	sprint(temp,"Cell_io/cluster/PFC/Jan19/PFC_67/all//clusteredall/dend_clusteredall_1/Synapses_%d_seeddend_%d.txt", $1,$2)  
+	vdend.wopen(temp)
+	for k=0,vect.size()-1 { 
+		vdend.printf ("%d\n",vect.x[k])
+	}
+	vdend.close()
+}
+//------------------------------------------------------------creat the pool of dends---------
+objref dendpool
+faulty= 54//Somogyi_1
+//faulty=12 //Somogyi_2
+//faulty=7 //Somogyi_3
+//faulty=13// Somogyi_4
+//faulty=13 //Somogyi_5
+
+//faulty=7//new_DR-rat 13
+//faulty= 12//DR-int
+//faulty= 11//Mar_11
+
+
+
+dendnum=number_dends-faulty 
+print dendnum		//number of correct dends
+dendpool= new Vector(dendnum)		//the vectror of correct dends
+j=0
+for i=0,number_dends-1{
+
+
+	if (i==0||i==1||i==2||i==9||i==13||i==15||i==18||i==21||i==33||i==34||i==35||i==38||i==40||i==44||i==48||i==57||i==59||i==65||i==67||i==69||i==70||i==73||i==82||i==93||i==98||i==108||i==111||i==115||i==116||i==117||i==121||i==127||i==134||i==135||i==137||i==138||i==139||i==141||i==145||i==146||i==148||i==149||i==154||i==157||i==160||i==164||i==171||i==182||i==173||i==187||i==190||i==195||i==198||i==210){ //Somogyi_1
+
+//if (i==0||i==5||i==11||i==12||i==13||i==14||i==15||i==16||i==21||i==27||i==40||i==4) { //Som_2 correct 63-12=51
+
+//if (i==0||i==3||i==9||i==13||i==26||i==41||i==48){ // Somogyi 3. 58-7=51 seeddend=0,50
+
+//if (i==0||i==6||i==40||i==66||i==89||i==90||i==91||i==92||i==111||i==112||i==126||i==161||i==179) { //Som_4 0.186
+
+//if (i==0||i==1||i==14||i==15||i==19||i==27||i==33||i==32||i==37||i==41||i==47||i==48||i==54) { //Som_5 0.58
+
+
+
+//if (i==0||i==9||i==16||i==28||i==31||i==36||i==41){ //PFC 47 48-7=41 seeddend=0,40
+
+//if (i==0||i==12||i==13||i==14||i==23||i==24||i==29||i==32||i==43||i==48||i==50||i==64){ //PFC 64 65-12=53 seeddend=0,52
+	
+//if (i==0||i==6||i==14||i==17||i==27||i==34||i==52||i==53||i==55||i==56||i==65){ //Mar_11
+
+
+		continue
+	}else{
+		dendpool.x[j]=i
+		j=j+1
+		}
+
+}
+
+
+//Number of total sengments per dendrite.
+proc total_segments_per_dend(){
+FSdetailedtemplate.dend[$1].nseg=cluster_synapses
+}
+
+for t=0, dendpool.size()-1 {
+total_segments_per_dend(dendpool.x[t])
+}
+
+//----------------------------------------------------------------------------------------------------------------------------------------------
+//.........................Autapse.................
+PV2PVmaxsyn=12  
+objref gabaain[PV2PVmaxsyn], congabaain[PV2PVmaxsyn]
+proc self_inhibition() {local delstimpv localobj fpvpv
+	fpvpv = new Random(100)
+	delstimpv=fpvpv.normal(0.6,0.2)
+	for a=0, (PV2PVmaxsyn-1) {
+		FSdetailedtemplate.soma {gabaain[a]=new GABAain(0.5) }
+		delstimpv = fpvpv.repick()
+		if (delstimpv<0) {delstimpv=delstimpv*(-1)}
+		FSdetailedtemplate.axon {congabaain[0] = new NetCon(&v(1), gabaain[0], -20, delstimpv, 5.1e-4*14)}
+	}
+}
+
+
+objref fpin, r
+fpin = new Random(5)                        //delstim
+fpin.normal(0.6, 0.2)		
+randomDend=0
+objref ampa[cluster_synapses*cluster_size],nmda[cluster_synapses*cluster_size]
+objref conampa[cluster_synapses*cluster_size], connmda[cluster_synapses*cluster_size]     
+
+//--------------------Permutate randomly dendrites indices:
+objref rd, fppv	,clusterDendrites
+fppv = new Random(2)
+//print "fine! go on!"
+
+
+//--------------------------------------------
+objref rndcluster
+for runs=0, cluster_size-1 { // 0,2=3 branches
+print "cluster_size" , cluster_size
+	for seeddend = 0,dendnum-1 { 
+                rd=new Random(seeddend*50)
+		rndcluster = new Vector(runs+1,0) //douplets triplets quadruplets etc
+		print runs 
+                print seeddend
+		for k = 0, (rndcluster.size()-1) {
+			rndcluster.x[k] = dendpool.x[(rd.uniform(0, dendpool.size()-1))] 
+			print k+1, " : ", rndcluster.x[k]
+		}
+		  for seedpid = 0,0{//4{
+                      r=new Random(seedpid*120)
+                      r.uniform(0.0, 1.0) //PID random
+			//print "Stimulating and running the above dendritic cluster with different PID!"
+			for syn=0, cluster_synapses-1 {
+		            print "syn", syn
+                            for k = 0, rndcluster.size()-1 {
+				uidx = k*cluster_synapses+syn 
+                          print "uidx", uidx                                                           
+				delstim=fppv.normal(0.6, 0.2) 
+				    if (delstim<0) {delstim=delstim*(-1) }
+					DEND = rndcluster.x[k]
+					PID = r.repick()
+                                        //print PID
+					FSdetailedtemplate.dend[DEND] { ampa[uidx] = new CPGLUIN(PID) }
+					FSdetailedtemplate.dend[DEND] { nmda[uidx] = new NMDAIN(PID) }
+					vecstim[uidx] = new VecStim(0.5)
+					vecstim[uidx].delay =0
+					vecstim[uidx].play(stimvector[uidx])
+					conampa[uidx] = new NetCon(vecstim[uidx], ampa[uidx], -20, delstim, 7.5e-4)  
+					connmda[uidx] = new NetCon(vecstim[uidx], nmda[uidx], -20, delstim, 3.2e-4*5)
+				}
+			}
+                      self_inhibition()
+			rec_soma_Voltage(runs,seeddend,seedpid,rndcluster)
+                       
+			run()
+			//save_soma_Voltage(runs,seeddend,seedpid,rndcluster)
+                       
+		}//seedpid
+	}//seeddend
+} //runs
+
+
+
+
+
+
+
+

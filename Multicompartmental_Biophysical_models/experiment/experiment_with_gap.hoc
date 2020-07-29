@@ -1,0 +1,303 @@
+// Gap junctions
+// Alexandra Tzilivaki 2018.
+//Initialize NEURON
+	load_file("nrngui.hoc") 
+	load_file("gap.hoc")
+
+        v_init = -68       // vrest   
+	cvode.active(0)     
+	//-----Objects for record data
+	objref cv
+	cv=new CVode(0)
+	tstop=250//700//1000
+	steps_per_ms=10
+	dt=1/steps_per_ms
+	n=int(tstop/dt)
+ 
+	objref all_msec
+	all_msec = new Vector(n,0)
+
+	  
+//Open Fast Spiking Templates and reconstrunctions
+
+xopen("tempSomogyi23.hoc")
+objref FSdetailedtemplate[2]
+FSdetailedtemplate[0] = new FScell("Somogyi_3.hoc")
+FSdetailedtemplate[1] = new FScell("Somogyi_2.hoc")
+
+
+xopen("../bash_templates/current_balance_fs.hoc")
+current_balanceFS(-68)
+xopen("../bash_templates/basic-graphics.hoc")
+addgraph("FSdetailedtemplate[0].soma.v(0.5)",-90,50)
+addgraph("FSdetailedtemplate[1].soma.v(0.5)",-90,50)
+
+
+
+
+objref Synaptic_Stim
+Synaptic_Stim = new NetStim(0.5)                            
+Synaptic_Stim.interval =200//0ne burst
+Synaptic_Stim.number = 1
+Synaptic_Stim.start = 100
+
+//---------------------------Autapse (Self Inhibition from axon to soma)
+PV2PVmaxsyn=12
+cells=2
+objref gabaain[PV2PVmaxsyn]
+objref congabaain[PV2PVmaxsyn]
+proc self_inhibition(){ local delstimpv localobj fpvpv 
+fpvpv = new Random(5)
+delstimpv=fpvpv.normal(0.6,0.2)
+for c=0,cells-1{
+for a=0, (PV2PVmaxsyn-1) {
+	FSdetailedtemplate[c].soma {gabaain[a]=new GABAain(0.5) }
+	delstimpv = fpvpv.repick()
+	if (delstimpv<0) {delstimpv=delstimpv*(-1)}
+	FSdetailedtemplate[c].axon {congabaain[0] = new NetCon(Synaptic_Stim, gabaain[0], -30, delstimpv, 5.1e-4*14) }
+
+}
+}
+}
+
+  self_inhibition()
+
+
+objref GAP[10]
+ggap=0.4 // conductance according to Tamas Somogyi 2000
+
+for z=0,9 {
+GAP[z] = new Gap(0.5)
+}
+
+
+/* //1. PFC
+FSdetailedtemplate[0].dend[2] GAP[0].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[2] GAP[0].target(.5)
+
+FSdetailedtemplate[0].dend[4] GAP[1].src(.5)         // GJC 2. proximal to soma 
+FSdetailedtemplate[1].soma    GAP[1].target(.5)
+
+FSdetailedtemplate[0].dend[3] GAP[2].src(.5)         // GJC 3. proximal to soma 
+FSdetailedtemplate[1].soma    GAP[2].target(.5)
+
+FSdetailedtemplate[0].dend[1] GAP[3].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[1] GAP[3].target(.5)
+
+FSdetailedtemplate[0].dend[5] GAP[4].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[5] GAP[4].target(.5)
+
+FSdetailedtemplate[0].dend[10] GAP[5].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[8] GAP[5].target(.5)
+
+FSdetailedtemplate[0].dend[19] GAP[6].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[18] GAP[6].target(.5)
+
+FSdetailedtemplate[0].dend[27] GAP[7].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[38] GAP[7].target(.5)
+
+FSdetailedtemplate[0].dend[45] GAP[8].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[31] GAP[8].target(.5)
+
+FSdetailedtemplate[0].dend[32] GAP[9].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[67] GAP[9].target(.5)
+
+*/
+
+
+//2. Hipp
+FSdetailedtemplate[0].dend[2] GAP[0].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[2] GAP[0].target(.5)
+
+FSdetailedtemplate[0].dend[1] GAP[1].src(.5)         // GJC 2. proximal to soma 
+FSdetailedtemplate[1].soma    GAP[1].target(.5)
+
+FSdetailedtemplate[0].dend[4] GAP[2].src(.5)         // GJC 3. proximal to soma 
+FSdetailedtemplate[1].soma    GAP[2].target(.5)
+
+FSdetailedtemplate[0].dend[1] GAP[3].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[6] GAP[3].target(.5)
+
+FSdetailedtemplate[0].dend[5] GAP[4].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[17] GAP[4].target(.5)
+
+FSdetailedtemplate[0].dend[33] GAP[5].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[26] GAP[5].target(.5)
+
+FSdetailedtemplate[0].dend[36] GAP[6].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[28] GAP[6].target(.5)
+
+FSdetailedtemplate[0].dend[42] GAP[7].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[33] GAP[7].target(.5)
+
+FSdetailedtemplate[0].dend[51] GAP[8].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[37] GAP[8].target(.5)
+
+FSdetailedtemplate[0].dend[51] GAP[9].src(.5)         // GJC 1. proximal to proximal 
+FSdetailedtemplate[1].dend[41] GAP[9].target(.5)
+
+
+
+for z=0,9 {GAP[z].g(ggap)}
+
+
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ for presynaptic neuron
+
+proxzero = 0
+forsec FSdetailedtemplate[0].basal_prox {          //ctpr= basal prox
+	proxzero = proxzero +1
+	}
+
+distzero= 0
+
+forsec FSdetailedtemplate[0].basal_dist {  //ctrd= basal dist
+	distzero = distzero +1
+	}
+
+number_dendszero = proxzero + distzero
+
+ 
+xopen("vecstimgap.hoc")
+
+call_vecstim(0)
+
+// for postsynaptic neuron
+
+proxone = 0
+forsec FSdetailedtemplate[1].basal_prox {          //ctpr= basal prox
+	proxone = proxone +1
+	}
+
+distone= 0
+
+forsec FSdetailedtemplate[1].basal_dist {  //ctrd= basal dist
+	distone = distone +1
+	}
+
+number_dendsone = proxone + distone 
+print number_dendsone
+
+proc ttx() {
+forsec FSdetailedtemplate[1].somatic {
+for(x) {
+if(ismembrane("Nafx")) for(x) { gnafbar_Nafx(x) = gnafbar_Nafx(x)*0}
+
+}
+}
+forsec FSdetailedtemplate[1].axonal {
+for(x) {
+if(ismembrane("Nafx")) for(x) { gnafbar_Nafx(x) = gnafbar_Nafx(x)*0}
+
+}
+}
+}// procedure
+
+  ttx()
+// --------------------------------------------------------------------------------------
+//-----------------------------------------------------------------Record and save 
+objref vdend, FSdv, FSdt
+proc rec_dend_Voltage(){
+		FSdv=new Vector(n)
+		FSdt=new Vector(n) 
+		for j=0,n-1 {FSdt.x[j]=j*dt }
+                   FSdetailedtemplate[1].dend[$1] cv.record(&v(0.5),FSdv,FSdt,1)
+               }
+
+	strdef temp
+	proc save_dend_Voltage() {
+		vdend = new File()
+                if (PFC){		
+		sprint(temp,"IO/cluster/PFC/PFC_67/new/GAP/recdendrite_%d_Synapses_%d.txt", $1,$2)
+                }else{
+                sprint(temp,"IO/cluster/Hipp/Somogyi_62/new/GAP/recdendrite_%d_Synapses_%d.txt", $1,$2)
+                }
+ 	        vdend.wopen(temp)
+		for sb=0, FSdv.size()-1 { 
+		    vdend.printf ("%f\n",FSdv.x[sb])
+		}
+		vdend.close()
+	 }
+
+//------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------
+maxsyndend=20	
+objref ampa[maxsyndend] , conampa[maxsyndend] , nmda[maxsyndend] , connmda[maxsyndend]			
+objref null
+objref fsyndend
+
+print "tre3e alliws aloimono sou!"
+
+for dendrite =0, number_dendsone-1 { 
+	addgraph_2("FSdetailedtemplate[1].dend[dendrite].v(0.5)",0 , tstop, -70, 50)
+	
+
+	       strdef running
+		sprint(running,"Dendrite_%d",dendrite)
+				
+
+		ascendend = 1 //initial synaptic contacts
+		for kk = 0, maxsyndend-1 {     
+	                print "MAXSYNDEND IS: ",maxsyndend
+			print "ascendend IS: ",ascendend    
+			print "is ascsyn smaller than maxsyn? ",(ascendend <= maxsyndend)
+			if (ascendend <= maxsyndend) { 
+				
+				for syn = 0, maxsyndend-1 {
+					ampa[syn] = null
+					nmda[syn] = null
+				}
+			           
+
+				FSdetailedtemplate[1].dend[dendrite].nseg=ascendend 
+				cum = (1/FSdetailedtemplate[1].dend[dendrite].nseg)/2
+				print "initial cum is ",cum 
+				print "kk is ",kk
+				for syn=0,FSdetailedtemplate[1].dend[dendrite].nseg-1 { 
+					FSdetailedtemplate[1].dend[dendrite] {ampa[syn] = new CPGLUIN(cum) }
+					FSdetailedtemplate[1].dend[dendrite] {nmda[syn] = new NMDAIN(cum)}
+
+					cum = cum + (1/FSdetailedtemplate[1].dend[dendrite].nseg/2)
+                            
+				}
+
+				for syn=0, (ascendend-1) { 
+					fsyndend = new Random(2)
+					delstim=fsyndend.normal(0.6, 0.2)
+					delstim=fsyndend.repick()
+					if (delstim<0) {delstim=delstim*(-1) }  
+
+					conampa[syn] = new NetCon(Synaptic_Stim, ampa[syn], -20, delstim, 7.5e-4)  
+					connmda[syn] = new NetCon(Synaptic_Stim, nmda[syn], -20, delstim, 3.2e-4*5)
+                        
+				}
+                              
+				print "Now stimulating ",ascendend, " synapses on dendrite ",dendrite
+                                rec_dend_Voltage(dendrite)
+				run()
+		                
+                            //   save_dend_Voltage(dendrite,ascendend)
+                                ascendend = ascendend + 1 
+                        
+			}
+		} //while not reached max synaptic contacts
+                        
+	} //for dendrite
+
+
+
+
+
+
+
+
+
+
+//=============================================================================================================
+
+
+
+
+
+
+

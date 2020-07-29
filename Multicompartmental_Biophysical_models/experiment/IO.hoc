@@ -1,0 +1,258 @@
+	/* Investigate dendritic integration , Alexandra Tzilivaki 2015*/
+
+	//Initialize NEURON
+	load_file("nrngui.hoc")   
+        v_init=-68       // Vrest
+	cvode.active(0)     
+	//-----Objects for record data
+	objref cv
+	cv=new CVode(0)
+	tstop=100             
+	steps_per_ms=10
+	dt=1/steps_per_ms
+	n=int(tstop/dt)
+
+	objref all_msec
+	all_msec = new Vector(n,0)
+	for q=0,n-1 {all_msec.x[q]=q*dt}
+	  
+
+	xopen("../bash_templates/basic-graphics.hoc") 
+	xopen("PFCtemplate.hoc") // Depending on the reconstruction open the proper template  e.g for hippocampal reconstruction Somogyi_2.hoc use the tempSomogyi23.hoc for the PFC Mar11.hoc use the PFCtemplate.hoc!! 
+	objref FSdetailedtemplate
+	FSdetailedtemplate = new FScell("Mar11.hoc") // reconstruction.
+        xopen("../bash_templates/current_balance_fs.hoc")
+       current_balanceFS(-68)
+       xopen("../bash_templates/basic-graphics.hoc") 
+      addgraph("FSdetailedtemplate.soma.v(0.5)",-70,50)
+      xopen("vecstim.hoc")
+
+//-----------------------------------------------------------------------------------------
+	ctrpr = 0
+	forsec FSdetailedtemplate.basal_prox {          //ctpr= basal prox
+		ctrpr = ctrpr +1
+	}
+	ctrd= 0
+	forsec FSdetailedtemplate.basal_dist {  //ctrd= basal dist
+		ctrd = ctrd +1
+	}
+	number_dends = ctrpr + ctrd
+	objref fsyndend
+	//     objref syn
+	maxsyndend=40//20//15//0//100 //12  // This is the number of maximum synapses activated in each branch.
+
+	//-------------------------------------------------------------------------------------------------------------------------------		
+	objref Synaptic_Stim
+	Synaptic_Stim = new NetStim(0.5)                            
+	Synaptic_Stim.interval =80  //0ne burst
+	Synaptic_Stim.number =1
+	Synaptic_Stim.start =20
+
+
+
+
+	//----------Record and save dend and soma voltage respectively
+	objref vsoma, FSv, FSt
+
+	proc rec_soma_Voltage(){
+		FSv=new Vector(n)
+		FSt=new Vector(n) 
+		for j=0,n-1 {FSt.x[j]=j*dt }
+		FSdetailedtemplate.soma cv.record(&FSdetailedtemplate.soma.v(0.5),FSv,FSt,1)
+	}
+	strdef temp
+	proc save_soma_Voltage() {
+		vsoma = new File()		
+		sprint(temp,"IO/cluster/PFC/PFC_67/soma_control/%s_recdendrite_%d_Synapses_%d.txt", $s1,$2, $3)  // control 
+		vsoma.wopen(temp)
+		for sb=0, FSv.size()-1 { 
+			vsoma.printf ("%f\n",FSv.x[sb])
+		}
+		vsoma.close()
+	}
+
+//addgraph_2("FSdetailedtemplate.soma.v(0.5)",0 , tstop, -70, 50)
+	objref vdend, FSdv, FSdt
+	
+proc rec_dend_Voltage(){
+		FSdv=new Vector(n)
+		FSdt=new Vector(n) 
+		for j=0,n-1 {FSdt.x[j]=j*dt }
+		
+FSdetailedtemplate.dend[$1] cv.record(&v(0.5),FSdv,FSdt,1)
+}
+
+	strdef temp
+	proc save_dend_Voltage() {
+		vdend = new File()		
+		sprint(temp,"IO/cluster/PFC/PFC_67/new/control2/recdendrite_%d_Synapses_%d.txt", $1,$2)  // control
+  
+		vdend.wopen(temp)
+		for sb=0, FSdv.size()-1 { 
+			vdend.printf ("%f\n",FSdv.x[sb])
+		}
+		vdend.close()
+	}
+
+
+//-----------------------------------------------------------	
+//---------------------------Autapse (Self Inhibition from axon to soma)
+PV2PVmaxsyn=12
+objref gabaain[PV2PVmaxsyn]
+objref congabaain[PV2PVmaxsyn]
+proc self_inhibition(){ local delstimpv localobj fpvpv 
+fpvpv = new Random(5)
+delstimpv=fpvpv.normal(0.6,0.2)
+for a=0, (PV2PVmaxsyn-1) {
+	FSdetailedtemplate.soma {gabaain[a]=new GABAain(0.5) }
+	delstimpv = fpvpv.repick()
+	if (delstimpv<0) {delstimpv=delstimpv*(-1)}
+	FSdetailedtemplate.axon {congabaain[0] = new NetCon(Synaptic_Stim, gabaain[0], -30, delstimpv, 5.1e-4*14) }
+
+}
+}
+//--------------------------------------------------------------------------------
+//=========procedure Ca block
+ proc calcium_block() {
+
+   forsec FSdetailedtemplate.basal_prox {
+		for(x) {
+		if(ismembrane("can")) for(x) {  gcabar_can(x)= gcabar_can(x)*0}
+		if(ismembrane("cat")) for(x) {  gcatbar_cat(x)= gcatbar_cat(x)*0}			
+		if(ismembrane("cal")) for(x) {  gcalbar_cal(x)= gcalbar_cal(x)*0}
+}
+}
+  forsec FSdetailedtemplate.basal_dist {
+		for(x) {
+		if(ismembrane("can")) for(x) {  gcabar_can(x)= gcabar_can(x)*0}
+		if(ismembrane("cat")) for(x) {  gcatbar_cat(x)= gcatbar_cat(x)*0 }
+        if(ismembrane("cal")) for(x) {  gcalbar_cal(x)= gcalbar_cal(x)*0}
+}
+}
+
+}
+//==============================procedure ttx 
+
+proc ttx() {
+forsec FSdetailedtemplate.somatic {
+for(x) {
+if(ismembrane("Nafx")) for(x) { gnafbar_Nafx(x) = gnafbar_Nafx(x)*0.0}
+
+
+}
+}
+forsec FSdetailedtemplate.axonal {
+for(x) {
+if(ismembrane("Nafx")) for(x) { gnafbar_Nafx(x) = gnafbar_Nafx(x)*0.0}
+
+}
+}
+forsec FSdetailedtemplate.basal_prox {
+for(x) {
+if(ismembrane("Nafx")) for(x) { gnafbar_Nafx(x) = gnafbar_Nafx(x)*1}
+}
+}
+forsec FSdetailedtemplate.basal_dist {
+for(x) {
+if(ismembrane("Nafx")) for(x) { gnafbar_Nafx(x) = gnafbar_Nafx(x)*1}
+}
+}
+}// procedure
+
+
+
+//-----------------------------------------------------------------------------------------------------------------
+	objref ampa[maxsyndend] , conampa[maxsyndend] , nmda[maxsyndend] , connmda[maxsyndend]			
+	objref null
+
+
+/*   !!!! if you wish to causal manipulate the morphology of all dendrites set here the diameter and length values.	
+
+/*for all=0,number_dends-1{
+    access FSdetailedtemplate.dend[all]
+  // FSdetailedtemplate.dend[all].L=40//40//0//FSdetailedtemplate.dend[dendrite].L*0.5
+    FSdetailedtemplate.dend[all].diam=0.4//1.2//FSdetailedtemplate.dend[dendrite].diam//*1.2
+}*/
+
+//==============================================================================================================================
+
+for dendrite =0, number_dends-1 { 
+
+	addgraph_2("FSdetailedtemplate.dend[dendrite].v(0.5)",0 , tstop, -70, 50)
+	
+
+	strdef running
+		sprint(running,"Dendrite_%d",dendrite)
+				
+
+		ascendend = 1 //initial synaptic contacts
+		for kk = 0, maxsyndend-1 {         
+		//	print "MAXSYNDEND IS: ",maxsyndend
+			//print "ascendend IS: ",ascendend
+
+			if (ascendend <= maxsyndend) { 
+				//	print "ready to stimulate ", ascendend, " synapses"
+				for syn = 0, maxsyndend-1 {
+					ampa[syn] = null
+					nmda[syn] = null
+				}
+			//	print ascendend
+
+				FSdetailedtemplate.dend[dendrite].nseg=ascendend 
+				cum = (1/FSdetailedtemplate.dend[dendrite].nseg)/2
+				//print "initial cum is ",cum 
+				//print "kk is ",kk
+				for syn=0,FSdetailedtemplate.dend[dendrite].nseg-1 { 
+					FSdetailedtemplate.dend[dendrite] {ampa[syn] = new CPGLUIN(cum) }
+					FSdetailedtemplate.dend[dendrite] {nmda[syn] = new NMDAIN(cum)}
+
+					
+					//print "New dendritic location: ",cum
+					cum = cum + (1/FSdetailedtemplate.dend[dendrite].nseg)
+                            
+				}
+
+				for syn=0, (ascendend-1) { 
+					fsyndend = new Random(2)
+					delstim=fsyndend.normal(0.6, 0.2)
+					delstim=fsyndend.repick()
+					if (delstim<0) {delstim=delstim*(-1) }  
+
+					conampa[syn] = new NetCon(Synaptic_Stim, ampa[syn], -20, delstim, 7.5e-4)   
+					connmda[syn] = new NetCon(Synaptic_Stim, nmda[syn], -20, delstim, 3.2e-4*5)  
+                                       
+                          
+				}
+				//print dendrite
+                                //    calcium_block()
+                       
+                                ttx()
+                                
+                                //call_vecstim()  // uncomment call_vecstim if you wish to add in vivo like background fluctuations. 
+
+                               self_inhibition()
+                                  
+				rec_dend_Voltage(dendrite)
+                              
+				print "Now stimulating ",ascendend, " synapses on dendrite ",dendrite
+				//Validate that ica curent is zero! 
+
+			//	rec_soma_Voltage()
+				run()
+				//save_soma_Voltage("soma_voltage",dendrite,ascendend) 
+				
+                       //  save_dend_Voltage(dendrite,ascendend)
+				
+                                ascendend = ascendend + 1 
+                        
+			}
+		} //while not reached max synaptic contacts
+                        
+	  } //for dendrite
+
+
+
+
+
+
+

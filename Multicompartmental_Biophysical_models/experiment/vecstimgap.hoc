@@ -1,0 +1,123 @@
+// Background synaptic activity in FS basket cells 2018 around 30 Hz to simulate the presynpatic cell firing in Gap junctions experiment. according to Tamas Somogyi 2000 
+//Alexandra Tzilivaki.
+
+inhibitory_synapses=8
+excitatory_synapses=20//32
+
+ampaweightin=7.5e-4//*0.9
+nmdaweightin=3.2e-4*5//*0.9
+gabaaweightin=5.1e-4*14*0
+ 
+
+//number_dendszero=$1
+objref  pevstiminh[excitatory_synapses], devstiminh[excitatory_synapses] ,pivstiminh[inhibitory_synapses], divstiminh[inhibitory_synapses]
+objref ran 
+
+objref pampain_back[excitatory_synapses], pnmdain_back[excitatory_synapses], pgabaain_back[inhibitory_synapses]
+objref pncampainback[excitatory_synapses], pncnmdainback[excitatory_synapses], pngabaaainback[inhibitory_synapses]
+
+
+mean=0.02
+
+objref dpool, rdend 
+
+dpool= new Vector(number_dendszero) // !!
+j=0
+for i= 0, number_dendszero-1{
+    dpool.x[j]=i
+    j=j+1
+}
+
+rdend=new Random(number_dendszero)
+rdend.uniform(0,number_dendszero-1)
+
+objref eDendperSyn, iDendperSyn
+
+eDendperSyn= new Vector(excitatory_synapses,0)
+iDendperSyn = new Vector(inhibitory_synapses,0)
+
+for g=0,eDendperSyn.size()-1 {
+    eDendperSyn.x[g]=dpool.x[(rdend.uniform(0,dpool.size()-1))]
+ }   
+
+
+for f=0,iDendperSyn.size()-1 {
+    iDendperSyn.x[f]=dpool.x[(rdend.uniform(0,dpool.size()-1))]
+ }   
+
+
+
+objref rp
+rp = new Random()
+rp.poisson(mean)
+print"123"
+objref stimvectorE[excitatory_synapses]
+objref stimvectorI[inhibitory_synapses]
+
+
+for t=0,excitatory_synapses-1{
+	stimvectorE[t]= new Vector()
+	for k=0,int(tstop)-1{         // $1 the tstop 
+		if(rp.repick()){
+			stimvectorE[t].append(k)
+		}
+	}
+}
+
+
+for j=0,inhibitory_synapses-1{
+	stimvectorI[j]= new Vector() 
+	for l=0,int(tstop)-1{         // $1 the tstop 
+		if(rp.repick()){
+			stimvectorI[j].append(l)
+		}
+	}
+}
+
+
+
+proc call_vecstim() {
+
+ran = new Random(5)
+PIDb = ran.uniform(0, 1)
+	
+// excitatory synapses in dendrites
+for syn=0,excitatory_synapses-1 {
+edendritis=eDendperSyn.x[syn]
+	       pevstiminh[syn] = new VecStim(0.5)
+	       pevstiminh[syn].delay = 0
+	       pevstiminh[syn].play(stimvectorE[syn])
+	       PIDb=ran.repick()
+
+			FSdetailedtemplate[$1].dend[edendritis] pampain_back[syn]=new CPGLUIN(PIDb)
+			FSdetailedtemplate[$1].dend[edendritis] pnmdain_back[syn]=new NMDAIN(PIDb)
+
+			pncampainback[syn] = new NetCon(pevstiminh[syn], pampain_back[syn], -20, 0, ampaweightin)
+			pncnmdainback[syn] = new NetCon(pevstiminh[syn], pnmdain_back[syn], -20, 0, nmdaweightin)
+	}
+	
+
+// inhibitory synapses in dendrites
+for syn=0,inhibitory_synapses-1 {
+idendritis=iDendperSyn.x[syn]
+		pivstiminh[syn] = new VecStim(0.5)
+		pivstiminh[syn].delay = 0
+		pivstiminh[syn].play(stimvectorI[syn])
+		PIDb=ran.repick()
+
+		FSdetailedtemplate[$1].dend[idendritis] pgabaain_back[syn]=new GABAain(PIDb)
+
+		pngabaaainback[syn] = new NetCon(pivstiminh[syn], pgabaain_back[syn], -30, 0, gabaaweightin)
+
+	}
+
+
+} // procedure
+
+
+
+
+
+
+
+
